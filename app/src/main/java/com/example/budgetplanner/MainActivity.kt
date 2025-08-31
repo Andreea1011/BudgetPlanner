@@ -11,22 +11,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.budgetplanner.ui.theme.BudgetPlannerTheme
+//import com.example.budgetplanner.ui2.theme.BudgetPlannerTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.activity.compose.setContent
+import com.example.budgetplanner.ui2.BudgetApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            BudgetPlannerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+            MaterialTheme {
+                Surface {
+                    BudgetApp()
                 }
             }
         }
+
     }
 }
 
@@ -40,8 +42,10 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
-    BudgetPlannerTheme {
-        Greeting("Android")
+fun HomePreview() {
+    MaterialTheme {
+        com.example.budgetplanner.ui2.home.HomeScreen()
     }
 }
+
+
