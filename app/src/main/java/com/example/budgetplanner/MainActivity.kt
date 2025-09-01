@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.activity.compose.setContent
 import com.example.budgetplanner.ui2.BudgetApp
+import com.example.budgetplanner.ui2.home.HomeScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,9 +44,12 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun HomePreview() {
-    MaterialTheme {
-        com.example.budgetplanner.ui2.home.HomeScreen()
-    }
+    HomeScreen(
+        currentBalanceRon = "1.234,56 RON",
+        totalSavingsRon = "4.000,00 RON",
+        onViewSavings = {}, onViewTransactions = {},
+        onViewRecurring = {}, onViewExpenses = {}
+    )
 }
 
 

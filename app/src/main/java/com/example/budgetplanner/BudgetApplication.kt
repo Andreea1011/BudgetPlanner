@@ -4,14 +4,23 @@ import android.app.Application
 import androidx.room.Room
 import com.example.budgetplanner.data.local.BudgetDatabase
 import com.example.budgetplanner.data.repository.BudgetRepository
+import com.example.budgetplanner.data.repository.RecurringRepository
 
 class BudgetApplication : Application() {
-    val database: BudgetDatabase by lazy {
-        Room.databaseBuilder(this, BudgetDatabase::class.java, "budget.db")
-            .fallbackToDestructiveMigration() // OK while prototyping
-            .build()
-    }
-    val repository: BudgetRepository by lazy {
-        BudgetRepository(database.transactionDao())
+    lateinit var repository: BudgetRepository
+    lateinit var recurringRepository: RecurringRepository   // ✅ add
+
+    override fun onCreate() {
+        super.onCreate()
+        val db = BudgetDatabase.getInstance(this)
+
+        repository = BudgetRepository(
+            transactionDao = db.transactionDao(),
+            reimbursementLinkDao = db.reimbursementLinkDao(),
+            savingsDao = db.savingsDao(),
+        )
+
+        recurringRepository = RecurringRepository(db.recurringExpenseDao())
+
     }
 }

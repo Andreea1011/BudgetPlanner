@@ -10,8 +10,11 @@ data class Transaction(
     val category: Category,
     val source: Source,
     val amountRon: Double,
-    val pending: Boolean
+    val pending: Boolean,
+    val excludePersonal: Boolean = false,
+    val party: String? = null
 )
+
 
 enum class Category { FOOD, TRANSPORT, DORINTE, APARTMENT, OTHER }
 enum class Source { MANUAL, OPEN_BANKING, NOTIF, SMS }

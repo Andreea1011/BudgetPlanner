@@ -14,4 +14,8 @@ data class TransactionEntity(
     val category: String = "OTHER",      // simple string enum
     val source: String = "MANUAL",       // MANUAL | OPEN_BANKING | NOTIF | SMS
     val amountRon: Double = originalAmount, // (convert later with BNR)
-    val pending: Boolean = false)
+    val pending: Boolean = false,
+    val excludePersonal: Boolean = false,   // manually mark “for mom” etc.
+    val party: String? = null,              // "MOM" on reimbursements (credits)
+    val reimbursedGroup: String? = null     // "MOM" when fully covered (nice to display)// optional soft-link label like "MOM"
+    )

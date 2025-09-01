@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.budgetplanner.ui2.home.HomeScreen
+import com.example.budgetplanner.ui2.recurring.RecurringScreen
 
 /**
  * Call BudgetApp() from your MainActivity's setContent { ... }.
@@ -87,6 +88,7 @@ fun BudgetNavGraph(
                 totalSavingsRon = "INSERT VALUE HERE",
                 onViewSavings = { navController.navigate(Dest.Savings.route) },
                 onViewTransactions = { navController.navigate(Dest.Transactions.route) },
+                onViewRecurring = { navController.navigate(Dest.Rent.route) }, // <-- NEW
                 onViewExpenses = { navController.navigate(Dest.Rent.route) },
             )
         }
@@ -95,14 +97,22 @@ fun BudgetNavGraph(
             com.example.budgetplanner.ui2.transactions.TransactionsScreen()
         }
 
-//        composable(Dest.Rent.route) {
-//            // Rent & Utilities (Table 1) – Phase 4
-//            RentScreen()
-//        }
+        composable(Dest.Rent.route) {
+            // Recurrent expenses screen
+            RecurringScreen(onBack = { navController.popBackStack() })
+        }
+
 //
 //        composable(Dest.Savings.route) {
 //            // Savings (Table 2) – Phase 5
 //            SavingsScreen()
 //        }
+
     }
 }
+
+
+
+
+
+

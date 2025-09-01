@@ -5,11 +5,31 @@ import com.example.budgetplanner.data.local.entities.TransactionEntity
 import com.example.budgetplanner.domain.model.*
 
 fun TransactionEntity.toDomain() = Transaction(
-    id, timestamp, originalAmount, originalCurrency, merchant, note,
-    Category.valueOf(category), Source.valueOf(source), amountRon, pending
+    id = id,
+    timestamp = timestamp,
+    originalAmount = originalAmount,
+    originalCurrency = originalCurrency,
+    merchant = merchant,
+    note = note,
+    category = Category.valueOf(category),
+    source = Source.valueOf(source),
+    amountRon = amountRon,
+    pending = pending,
+    excludePersonal = excludePersonal,
+    party = party
 )
 
 fun Transaction.toEntity() = TransactionEntity(
-    id, timestamp, originalAmount, originalCurrency, merchant, note,
-    category.name, source.name, amountRon, pending
+    id = id,
+    timestamp = timestamp,
+    originalAmount = originalAmount,
+    originalCurrency = originalCurrency,
+    merchant = merchant,
+    note = note,
+    category = category.name,
+    source = source.name,
+    amountRon = amountRon,
+    pending = pending,
+    excludePersonal = excludePersonal,
+    party = party
 )

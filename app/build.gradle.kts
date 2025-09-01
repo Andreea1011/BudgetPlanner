@@ -78,6 +78,7 @@ dependencies {
 
     implementation(platform(libs.androidx.compose.bom.v20240600))
     implementation(libs.androidx.compose.material3.material3)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     // (tests / debug tooling as you had)
     testImplementation(libs.junit)

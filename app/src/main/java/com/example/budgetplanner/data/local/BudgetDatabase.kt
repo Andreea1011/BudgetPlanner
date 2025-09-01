@@ -1,15 +1,49 @@
 package com.example.budgetplanner.data.local
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.budgetplanner.data.local.entities.ReimbursementLinkEntity
+import com.example.budgetplanner.data.local.entities.SavingsEntity
 import com.example.budgetplanner.data.local.entities.TransactionEntity
+import com.example.budgetplanner.data.local.entities.dao.RecurringExpenseDao
+import com.example.budgetplanner.data.local.entities.dao.ReimbursementLinkDao
+import com.example.budgetplanner.data.local.entities.dao.SavingsDao
 import com.example.budgetplanner.data.local.entities.dao.TransactionDao
+import com.example.budgetplanner.data.local.entities.RecurringExpenseEntity
 
 @Database(
-    entities = [TransactionEntity::class],
-    version = 1,
+    entities = [
+        TransactionEntity::class,
+        ReimbursementLinkEntity::class,  // <-- add
+        SavingsEntity::class,
+        RecurringExpenseEntity::class
+    ],
+    version = 2,                         // <-- bump (was 1)
     exportSchema = false
 )
 abstract class BudgetDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
+    abstract fun reimbursementLinkDao(): ReimbursementLinkDao
+    abstract fun savingsDao(): SavingsDao   // (if using savings now)
+    abstract fun recurringExpenseDao(): RecurringExpenseDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: BudgetDatabase? = null
+
+        fun getInstance(context: Context): BudgetDatabase {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    BudgetDatabase::class.java,
+                    "budget.db"
+                )
+                    .fallbackToDestructiveMigration() // wipe DB when schema changes
+                    .build()
+                    .also { INSTANCE = it }
+            }
+        }
+    }
 }
