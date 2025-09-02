@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     // If your catalog doesn’t have a compiler alias, add a direct coord:
     kapt(libs.androidx.room.compiler)
+    implementation(libs.androidx.datastore.preferences)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
@@ -79,6 +80,24 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom.v20240600))
     implementation(libs.androidx.compose.material3.material3)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.retrofit)
+    implementation(libs.converter.moshi)
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin)
+
+    // Retrofit
+    implementation(libs.retrofit.v2110)
+    implementation(libs.converter.scalars)
+    implementation(libs.retrofit)
+    implementation(libs.converter.moshi)
+
+// Moshi (JSON library Retrofit uses)
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin)
+
+// DataStore
+    implementation(libs.androidx.datastore.preferences.v111)
+
 
     // (tests / debug tooling as you had)
     testImplementation(libs.junit)

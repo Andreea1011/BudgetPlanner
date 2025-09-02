@@ -20,30 +20,27 @@ import com.example.budgetplanner.data.local.entities.RecurringExpenseEntity
         SavingsEntity::class,
         RecurringExpenseEntity::class
     ],
-    version = 2,                         // <-- bump (was 1)
+    version = 3,                         // <-- bump (was 1)
     exportSchema = false
 )
 abstract class BudgetDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun reimbursementLinkDao(): ReimbursementLinkDao
-    abstract fun savingsDao(): SavingsDao   // (if using savings now)
+    abstract fun savingsDao(): SavingsDao
     abstract fun recurringExpenseDao(): RecurringExpenseDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: BudgetDatabase? = null
+        @Volatile private var INSTANCE: BudgetDatabase? = null
 
-        fun getInstance(context: Context): BudgetDatabase {
-            return INSTANCE ?: synchronized(this) {
+        fun getInstance(context: Context): BudgetDatabase =
+            INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     BudgetDatabase::class.java,
                     "budget.db"
                 )
-                    .fallbackToDestructiveMigration() // wipe DB when schema changes
-                    .build()
-                    .also { INSTANCE = it }
+                    .fallbackToDestructiveMigration() // ← DEV ONLY
+                    .build().also { INSTANCE = it }
             }
-        }
     }
 }

@@ -106,20 +106,6 @@ fun TransactionBottomSheet(
                 Spacer(Modifier.height(8.dp))
             }
 
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Exclude from personal spend")
-                Switch(
-                    checked = exclude,
-                    onCheckedChange = {
-                        exclude = it
-                        onToggleExclude(it) // persist immediately
-                    }
-                )
-            }
-
-            // --- Toggles section (ONE exclude row, ONE mom row) ---
-
             Divider(Modifier.padding(vertical = 12.dp))
 
 // Exclude toggle — only for EXPENSES (negative)

@@ -2,12 +2,16 @@ package com.example.budgetplanner.ui2.recurring
 
 import android.app.Application
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,98 +33,108 @@ fun RecurringScreen(onBack: () -> Unit) {
                 title = { Text("Recurrent expenses") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 }
             )
         }
     ) { pad ->
-        Column(Modifier.padding(pad).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-
+        Column(
+            Modifier
+                .padding(pad)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             // Month selector
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 OutlinedButton(onClick = { vm.prevMonth() }) { Text("◀") }
-                val label = ui.month.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()))
-                    .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+                val label = ui.month.format(
+                    DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())
+                ).replaceFirstChar { it.titlecase(Locale.getDefault()) }
                 Text(label, style = MaterialTheme.typography.titleMedium)
                 OutlinedButton(onClick = { vm.nextMonth() }) { Text("▶") }
             }
 
-            // Total (halved)
-            Text("Total (shared): ${"%.2f".format(ui.totalRon / 2)} RON", style = MaterialTheme.typography.titleMedium)
-
-            // Rate row
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Rate + fetch
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = ui.rateEurRon.toString(),
-                    onValueChange = { it.toDoubleOrNull()?.let(vm::updateRate) },
-                    label = { Text("EUR→RON rate (BNR)") },
+                    value = String.format(Locale.getDefault(), "%.4f", ui.rateEurRon),
+                    onValueChange = { txt -> txt.toDoubleOrNull()?.let(vm::updateRate) },
+                    label = { Text("EUR → RON") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f)
                 )
-                // optional: a “Fetch BNR” button later
+                Button(onClick = { vm.fetchRate() }) { Text("Fetch rate") }
             }
 
-            // Table header
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Totals
+            Text(
+                "Total (shared): ${"%.2f".format(ui.totalRon / 2)} RON",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            // Header
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Name", modifier = Modifier.weight(1f))
                 Text("EUR", modifier = Modifier.weight(1f))
                 Text("RON", modifier = Modifier.weight(1f))
             }
             Divider()
 
-            val names = listOf("RENT","GAZ","CURENT","DIGI","INTRETINERE")
-            names.forEach { name ->
-                val pair = ui.rows[name] ?: (null to null)
-                var eurText by remember(ui.month, name, pair.first) { mutableStateOf(pair.first?.let { "%.2f".format(it) } ?: "") }
-                var ronText by remember(ui.month, name, pair.second) { mutableStateOf(pair.second?.let { "%.2f".format(it) } ?: "") }
+            // Scrollable rows
+            val order = listOf("RENT", "GAZ", "CURENT", "DIGI", "INTRETINERE")
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = true)
+            ) {
+                items(order) { name ->
+                    val row = ui.rows[name]
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) },
+                            modifier = Modifier.weight(1f)
+                        )
 
-                // when one side changes, compute the other (simple two-way)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }, modifier = Modifier.weight(1f))
+                        OutlinedTextField(
+                            value = row?.eur?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "",
+                            onValueChange = { txt ->
+                                vm.setEur(name, txt.toDoubleOrNull())
+                            },
+                            placeholder = { Text("0") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
 
-                    OutlinedTextField(
-                        value = eurText,
-                        onValueChange = { new ->
-                            eurText = new
-                            vm.setEur(name, new)
-                            // mirror RON field locally too
-                            val eur = new.toDoubleOrNull()
-                            ronText = if (eur != null) "%.2f".format(eur * ui.rateEurRon) else ""
-                        },
-                        placeholder = { Text("0") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
+                        OutlinedTextField(
+                            value = row?.ron?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "",
+                            onValueChange = { txt ->
+                                vm.setRon(name, txt.toDoubleOrNull())
+                            },
+                            placeholder = { Text("0") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
-                    OutlinedTextField(
-                        value = ronText,
-                        onValueChange = { new ->
-                            ronText = new
-                            vm.setRon(name, new)
-                            val ron = new.toDoubleOrNull()
-                            eurText = if (ron != null && ui.rateEurRon != 0.0) "%.2f".format(ron / ui.rateEurRon) else ""
-                        },
-                        placeholder = { Text("0") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
+                    // save row
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { vm.saveRow(name) }) { Text("Save") }
+                    }
+                    Divider()
                 }
-
-                // Save row button (small)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { vm.saveRow(name) }) { Text("Save") }
-                }
-
-                Divider()
             }
 
             // Footer totals
-            Text("Total EUR (computed): ${
-                "%.2f".format(
-                    ui.rows.values.mapNotNull { it.first }.sum()
-                )
-            }   •   Total RON: ${"%.2f".format(ui.totalRon)}")
+            val totalRon = ui.totalRon
+            val totalEur = ui.rows.values.mapNotNull { it.eur }.sum()
+            Text(
+                "Total EUR (computed): ${"%.2f".format(totalEur)}   •   Total RON: ${"%.2f".format(totalRon)}"
+            )
+
+            ui.error?.let { Text("Error: $it", color = colorScheme.error) }
         }
     }
 }

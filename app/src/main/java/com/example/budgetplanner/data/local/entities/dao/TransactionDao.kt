@@ -79,4 +79,11 @@ interface TransactionDao {
 """)
     suspend fun getExcludedExpensesBetween(fromMillis: Long, toMillis: Long): List<TransactionEntity>
 
+    @Query("""
+    SELECT * FROM transactions
+    WHERE timestamp >= :start AND timestamp < :end
+    ORDER BY timestamp DESC
+""")
+    suspend fun getBetween(start: Long, end: Long): List<TransactionEntity>
+
 }

@@ -7,7 +7,7 @@ import com.example.budgetplanner.data.local.entities.dao.SavingsDao   // if youâ
 import com.example.budgetplanner.data.local.entities.ReimbursementLinkEntity
 import com.example.budgetplanner.data.local.entities.TransactionEntity
 import com.example.budgetplanner.data.local.entities.SavingsEntity
-
+import com.example.budgetplanner.domain.model.Category
 import com.example.budgetplanner.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,7 +16,7 @@ import java.time.*
 class BudgetRepository(
     private val transactionDao: TransactionDao,
     private val reimbursementLinkDao: ReimbursementLinkDao,
-    private val savingsDao: SavingsDao? = null   // make optional if you havenâ€™t wired Savings yet
+    private val savingsDao: com.example.budgetplanner.data.local.entities.dao.SavingsDao // non-null
 ) {
     fun observeMonth(yearMonth: YearMonth, zoneId: ZoneId = ZoneId.systemDefault()): Flow<List<Transaction>> {
         val start = yearMonth.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
@@ -197,4 +197,56 @@ class BudgetRepository(
         }
         return totalOpen
     }
+
+    suspend fun personalSpendByCategory(
+        month: YearMonth,
+        zone: ZoneId = ZoneId.systemDefault()
+    ): Map<Category, Double> {
+        val start = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end   = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        // pull entities and map to domain
+        val txs = transactionDao.getBetween(start, end).map { it.toDomain() }
+
+        val result = mutableMapOf<Category, Double>()
+        for (t in txs) {
+            if (t.originalAmount >= 0) continue          // only expenses
+            if (t.excludePersonal) continue              // ignore excluded
+
+            // subtract what Mom already covered for this expense
+            val covered = reimbursementLinkDao.sumCoveredForExpense(t.id)
+            val open = (kotlin.math.abs(t.amountRon) - covered).coerceAtLeast(0.0)
+            if (open <= 0.0) continue
+
+            val cat = t.category                          // already Category enum
+            result[cat] = (result[cat] ?: 0.0) + open
+        }
+        return result
+    }
+
+    // --- Savings ---
+    fun observeSavings() = savingsDao.observeAll()
+    fun observeSavingsTotalRon() = savingsDao.observeTotalRon()
+
+    suspend fun ensureSavingsPot(name: String) {
+        if (savingsDao.getByName(name) == null) {
+            savingsDao.insert(com.example.budgetplanner.data.local.entities.SavingsEntity(name = name, amountRon = 0.0))
+        }
+    }
+
+    suspend fun addSavings(name: String, amountRon: Double) {
+        val existing = savingsDao.getByName(name)
+        if (existing == null) {
+            savingsDao.insert(com.example.budgetplanner.data.local.entities.SavingsEntity(name = name, amountRon = amountRon))
+        } else {
+            savingsDao.updateAmount(existing.id, existing.amountRon + amountRon)
+        }
+    }
+
+    suspend fun setSavingsAmount(id: Long, amountRon: Double) =
+        savingsDao.updateAmount(id, amountRon)
+
+    suspend fun deleteSavings(id: Long) =
+        savingsDao.deleteById(id)
+
 }

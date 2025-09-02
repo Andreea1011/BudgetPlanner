@@ -6,6 +6,10 @@ androidxComposeBom = "2025.08.01"
 coilCompose = "2.7.0"
 composeBomVersion = "2025.08.01"
 converterMoshi = "3.0.0"
+converterMoshiVersion = "2.11.0"
+converterScalars = "2.11.0"
+datastorePreferences = "1.1.7"
+datastorePreferencesVersion = "1.1.7"
 desugar_jdk_libs = "2.1.5"
 kotlin = "2.2.10"
 ksp = "2.2.10-1.0.24"   # MUST match your Kotlin minor version
@@ -21,8 +25,11 @@ lifecycleViewmodelKtx = "2.9.3"
 material3 = "1.3.2"
 materialIconsExtended = "1.7.8"
 materialIconsExtendedVersion = "1.7.8"
+moshi = "1.15.2"
+moshiKotlin = "1.15.2"
 navigationCompose = "2.9.3"
 retrofit = "3.0.0"
+retrofitVersion = "2.11.0"
 roomCompiler = "2.7.2"
 roomRuntime = "2.7.2"
 
@@ -34,6 +41,8 @@ androidx-compose-bom-v20250801 = { module = "androidx.compose:compose-bom", vers
 androidx-compose-material3-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 androidx-compose-ui-ui = { module = "androidx.compose.ui:ui" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+androidx-datastore-preferences-v111 = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferencesVersion" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 androidx-material-icons-extended-v171 = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtendedVersion" }
@@ -44,6 +53,7 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomRunt
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "converterMoshi" }
+converter-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "converterScalars" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -60,7 +70,11 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 material3 = { module = "androidx.compose.material3:material3" }
+moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
+moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "moshiKotlin" }
+retro_fit2-converter-moshi = { module = "com.squareup.retro fit2:converter-moshi", version.ref = "converterMoshiVersion" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-v2110 = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofitVersion" }
 ui = { module = "androidx.compose.ui:ui" }
 
 [plugins]

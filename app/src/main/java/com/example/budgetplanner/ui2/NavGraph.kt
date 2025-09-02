@@ -39,7 +39,7 @@ fun BudgetApp() {
 sealed class Dest(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Home : Dest("home", "Home", Icons.Filled.Home)
     data object Transactions : Dest("transactions", "Transactions", Icons.Filled.ReceiptLong)
-    data object Rent : Dest("rent", "Expenses", Icons.Filled.Assessment)
+    data object Rent : Dest("rent", "Recurring", Icons.Filled.Assessment)
     data object Savings : Dest("savings", "Savings", Icons.Filled.AccountBalance)
 
     companion object {
@@ -89,7 +89,7 @@ fun BudgetNavGraph(
                 onViewSavings = { navController.navigate(Dest.Savings.route) },
                 onViewTransactions = { navController.navigate(Dest.Transactions.route) },
                 onViewRecurring = { navController.navigate(Dest.Rent.route) }, // <-- NEW
-                onViewExpenses = { navController.navigate(Dest.Rent.route) },
+                onViewExpenses = { navController.navigate("expenses") },
             )
         }
 
@@ -102,11 +102,18 @@ fun BudgetNavGraph(
             RecurringScreen(onBack = { navController.popBackStack() })
         }
 
-//
-//        composable(Dest.Savings.route) {
-//            // Savings (Table 2) – Phase 5
-//            SavingsScreen()
-//        }
+        composable("expenses") {
+            com.example.budgetplanner.ui2.expenses.ExpensesScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Dest.Savings.route) {
+            com.example.budgetplanner.ui2.savings.SavingsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
 
     }
 }
