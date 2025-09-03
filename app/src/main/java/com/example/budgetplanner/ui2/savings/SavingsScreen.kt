@@ -1,37 +1,15 @@
 package com.example.budgetplanner.ui2.savings
 
 import android.app.Application
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,12 +32,15 @@ fun SavingsScreen(onBack: () -> Unit) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
-                }
+                },
+                actions = { TextButton(onClick = vm::openAddDialog) { Text("Add") } }
             )
         }
     ) { pad ->
         Column(
-            Modifier.padding(pad).padding(16.dp),
+            Modifier
+                .padding(pad)
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Totals
@@ -69,52 +50,36 @@ fun SavingsScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium
             )
 
-            // Actions
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { vm.openAddDialog() }) { Text("Insert savings source") }
-            }
-
-            // Table header
+            // Headers
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Name", modifier = Modifier.weight(1f))
                 Text("RON", modifier = Modifier.width(120.dp))
                 Text("EUR", modifier = Modifier.width(120.dp))
-                Spacer(Modifier.width(48.dp)) // for delete icon
+                Spacer(Modifier.width(48.dp)) // delete icon space
             }
             Divider()
 
-            // Table
+            // List – Mom surplus row first (if exists), then other pots
+            val (momRows, otherRows) = ui.rows.partition { it.name.equals("Mom surplus", true) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(ui.rows, key = { it.id }) { row ->
-                    var ronText by remember(row.id, row.amountRon) {
-                        mutableStateOf(String.format(Locale.getDefault(), "%.2f", row.amountRon))
-                    }
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(row.name, modifier = Modifier.weight(1f))
-
-                        OutlinedTextField(
-                            value = ronText,
-                            onValueChange = { new ->
-                                ronText = new
-                                new.toDoubleOrNull()?.let { vm.updateAmount(row.id, it) }
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.width(120.dp)
+                if (momRows.isNotEmpty()) {
+                    item(key = "mom_row") {
+                        SavingsRow(
+                            row = momRows.first(),
+                            onSet = vm::updateAmount,
+                            onDelete = vm::delete,
+                            highlight = true,
+                            deletable = false               // keep mom pot
                         )
-
-                        Text(
-                            row.amountEur?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "-",
-                            modifier = Modifier.width(120.dp)
-                        )
-
-                        IconButton(onClick = { vm.delete(row.id) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete")
-                        }
+                        Divider()
                     }
+                }
+                items(otherRows, key = { it.id }) { row ->
+                    SavingsRow(
+                        row = row,
+                        onSet = vm::updateAmount,
+                        onDelete = vm::delete
+                    )
                     Divider()
                 }
             }
@@ -123,11 +88,59 @@ fun SavingsScreen(onBack: () -> Unit) {
 
     if (ui.showAddDialog) {
         AddPotDialog(
-            onDismiss = { vm.closeAddDialog() },
-            onConfirm = { name, amount ->
-                vm.addPot(name, amount)
-            }
+            onDismiss = vm::closeAddDialog,
+            onConfirm = { name, amount -> vm.addPot(name, amount) }
         )
+    }
+}
+
+@Composable
+private fun SavingsRow(
+    row: SavingsRowUi,
+    onSet: (Long, Double) -> Unit,
+    onDelete: (Long) -> Unit,
+    highlight: Boolean = false,
+    deletable: Boolean = true
+) {
+    var ronText by remember(row.id, row.amountRon) {
+        mutableStateOf(String.format(Locale.getDefault(), "%.2f", row.amountRon))
+    }
+
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            row.name,
+            modifier = Modifier.weight(1f),
+            style = if (highlight) MaterialTheme.typography.titleMedium else LocalTextStyle.current
+        )
+
+        OutlinedTextField(
+            value = ronText,
+            onValueChange = { new ->
+                ronText = new
+                new.toDoubleOrNull()?.let { onSet(row.id, it) }
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            modifier = Modifier.width(120.dp)
+        )
+
+        Text(
+            row.amountEur?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "-",
+            modifier = Modifier.width(120.dp)
+        )
+
+        IconButton(
+            onClick = { if (deletable) onDelete(row.id) },
+            enabled = deletable
+        ) {
+            Icon(
+                Icons.Filled.Delete,
+                contentDescription = if (deletable) "Delete" else "Protected"
+            )
+        }
     }
 }
 
@@ -162,11 +175,11 @@ private fun AddPotDialog(
         confirmButton = {
             TextButton(
                 enabled = name.isNotBlank() && ron.toDoubleOrNull() != null,
-                onClick = { onConfirm(name.trim(), ron.toDouble()) }
+                onClick = {
+                    onConfirm(name.trim(), ron.toDouble())
+                }
             ) { Text("Add") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

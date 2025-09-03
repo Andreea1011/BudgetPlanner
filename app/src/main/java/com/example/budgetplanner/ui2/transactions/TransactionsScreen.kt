@@ -50,6 +50,7 @@ fun TransactionsScreen() {
                         Text(if (state.isLoading) "Syncing…" else "Sync")
                     }
                     TextButton(onClick = { vm.seedMomScenario() }) { Text("Seed Mom") }
+                    TextButton(onClick = { vm.autoLabel() }) { Text("Auto-label") }
                     TextButton(onClick = { vm.dumpMomLinksToLog() }) { Text("Dump") }
                 }
             )

@@ -8,6 +8,9 @@ import com.example.budgetplanner.data.repository.BudgetRepository
 import com.example.budgetplanner.data.repository.RateRepository
 import com.example.budgetplanner.data.repository.RecurringRepository
 import com.example.budgetplanner.data.settings.RateStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class BudgetApplication : Application() {
     lateinit var repository: BudgetRepository
@@ -22,13 +25,16 @@ class BudgetApplication : Application() {
             transactionDao = db.transactionDao(),
             reimbursementLinkDao = db.reimbursementLinkDao(),
             savingsDao = db.savingsDao(),
+            merchantRuleDao = db.merchantRuleDao()
         )
 
         recurringRepository = RecurringRepository(db.recurringExpenseDao())
 
         rateRepository = RateRepository(store = RateStore(this))
 
-
+        CoroutineScope(Dispatchers.IO).launch {
+            repository.seedDefaultRulesIfEmpty()
+        }
     }
 
 }

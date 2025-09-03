@@ -1,22 +1,28 @@
 package com.example.budgetplanner.data.repository
 
 
+import com.example.budgetplanner.data.local.entities.MerchantRuleEntity
 import com.example.budgetplanner.data.local.entities.dao.TransactionDao
 import com.example.budgetplanner.data.local.entities.dao.ReimbursementLinkDao
 import com.example.budgetplanner.data.local.entities.dao.SavingsDao   // if you’re using savings now
 import com.example.budgetplanner.data.local.entities.ReimbursementLinkEntity
 import com.example.budgetplanner.data.local.entities.TransactionEntity
 import com.example.budgetplanner.data.local.entities.SavingsEntity
+import com.example.budgetplanner.data.local.entities.dao.MerchantRuleDao
 import com.example.budgetplanner.domain.model.Category
 import com.example.budgetplanner.domain.model.Transaction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.time.*
+
 
 class BudgetRepository(
     private val transactionDao: TransactionDao,
     private val reimbursementLinkDao: ReimbursementLinkDao,
-    private val savingsDao: com.example.budgetplanner.data.local.entities.dao.SavingsDao // non-null
+    private val savingsDao: com.example.budgetplanner.data.local.entities.dao.SavingsDao,
+    private val merchantRuleDao: MerchantRuleDao
 ) {
     fun observeMonth(yearMonth: YearMonth, zoneId: ZoneId = ZoneId.systemDefault()): Flow<List<Transaction>> {
         val start = yearMonth.atDay(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
@@ -226,12 +232,25 @@ class BudgetRepository(
 
     // --- Savings ---
     fun observeSavings() = savingsDao.observeAll()
-    fun observeSavingsTotalRon() = savingsDao.observeTotalRon()
+    // ---- Savings
+    fun observeSavingsTotalRon(): kotlinx.coroutines.flow.Flow<Double?> =
+        savingsDao.observeTotalRon()
 
+    fun observeNetTxSum(): kotlinx.coroutines.flow.Flow<Double> =
+        transactionDao.observeNetSum()
     suspend fun ensureSavingsPot(name: String) {
         if (savingsDao.getByName(name) == null) {
             savingsDao.insert(com.example.budgetplanner.data.local.entities.SavingsEntity(name = name, amountRon = 0.0))
         }
+    }
+
+    fun observePersonalSpendForMonth(
+        ym: java.time.YearMonth,
+        zone: java.time.ZoneId
+    ): kotlinx.coroutines.flow.Flow<Double> {
+        val start = ym.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end   = ym.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return transactionDao.observePersonalSpendBetween(start, end)
     }
 
     suspend fun addSavings(name: String, amountRon: Double) {
@@ -249,4 +268,138 @@ class BudgetRepository(
     suspend fun deleteSavings(id: Long) =
         savingsDao.deleteById(id)
 
+    private enum class MatchType { CONTAINS, STARTS_WITH, EXACT }
+
+    private fun matches(merchant: String, rule: MerchantRuleEntity): Boolean {
+        val m = merchant.uppercase()
+        val p = rule.pattern.uppercase()
+        return when (MatchType.valueOf(rule.matchType)) {
+            MatchType.CONTAINS    -> m.contains(p)
+            MatchType.STARTS_WITH -> m.startsWith(p)
+            MatchType.EXACT       -> m == p
+        }
+    }
+
+    /**
+     * Apply rules to *this month*:
+     * - sets category if rule.category != null
+     * - sets excludePersonal if true
+     * - sets party if provided
+     */
+    suspend fun applyRulesToMonth(month: YearMonth, zone: ZoneId): Result<Int> = withContext(
+        Dispatchers.IO) {
+        val dao = merchantRuleDao ?: return@withContext Result.failure(IllegalStateException("Rules DAO missing"))
+        val rules = dao.getAll()
+        if (rules.isEmpty()) return@withContext Result.success(0)
+
+        val start = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val txs = transactionDao.getBetween(start, end)   // make sure you have getBetween()
+
+        var touched = 0
+        for (t in txs) {
+            val merchant = t.merchant ?: continue
+            for (r in rules) {
+                if (!matches(merchant, r)) continue
+
+                var changed = false
+                if (r.category != null && r.category != t.category) {
+                    transactionDao.updateNoteAndCategory(t.id, t.note, r.category)
+                    changed = true
+                }
+                if (r.excludePersonal && !t.excludePersonal) {
+                    transactionDao.setExcludePersonal(t.id, true)
+                    changed = true
+                }
+                if (r.setParty != null && r.setParty != t.party) {
+                    transactionDao.setParty(t.id, r.setParty)
+                    changed = true
+                }
+                if (changed) touched++
+                break // first matching rule wins
+            }
+        }
+        Result.success(touched)
+    }
+
+    /** Seed a few defaults (only if the table is empty). */
+    suspend fun seedDefaultRulesIfEmpty() = withContext(Dispatchers.IO) {
+        val dao = merchantRuleDao ?: return@withContext
+        if (dao.count() > 0) return@withContext
+
+        val list = listOf(
+            // Supermarkets → FOOD
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "MEGA",       category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "CARREFOUR",  category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "KAUFLAND",   category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "LIDL",       category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "PROFI",      category = "FOOD", priority = 10),
+
+            // Pharmacies → FARMACY and exclude from personal spend
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "CATENA",     category = "FARMACY", excludePersonal = true, priority = 20),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "SENSIBLU",   category = "FARMACY", excludePersonal = true, priority = 20),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "HELP NET",   category = "FARMACY", excludePersonal = true, priority = 20),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "DR.MAX",     category = "FARMACY", excludePersonal = true, priority = 20),
+
+            // Transport examples
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "STB",        category = "TRANSPORT", priority = 30),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "METROREX",   category = "TRANSPORT", priority = 30),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "UBER",       category = "TRANSPORT", priority = 30),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "BOLT",       category = "TRANSPORT", priority = 30),
+
+            // Incoming transfers from Mom (example)
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "MAMA",       category = "OTHER", setParty = "MOM", priority = 5),
+        )
+        list.forEach { dao.insert(it) }
+    }
+
+    // ---------- helper: safe enum from String ----------
+    private fun String?.toCategoryOrNull(): Category? =
+        runCatching { if (this.isNullOrBlank()) null else Category.valueOf(this) }.getOrNull()
+
+    suspend fun recategorizeMonth(month: YearMonth, zone: ZoneId) {
+        val start = month.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end   = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        val rules: List<MerchantRuleEntity> = merchantRuleDao.getAll()  // <-- ‘rules’ is here
+        if (rules.isEmpty()) return
+
+        val rows: List<TransactionEntity> = transactionDao.getBetween(start, end)
+
+        for (e in rows) {
+            val merchant = (e.merchant ?: "").uppercase()
+            var updated = e
+            var changed = false
+
+            for (r in rules) {
+                val pat = r.pattern.uppercase()
+                val matches = when (r.matchType) {
+                    "EXACT"       -> merchant == pat
+                    "STARTS_WITH" -> merchant.startsWith(pat)
+                    else          -> merchant.contains(pat) // CONTAINS
+                }
+                if (!matches) continue
+
+                r.category.toCategoryOrNull()?.let { cat ->
+                    if (e.category != cat.name) {
+                        updated = updated.copy(category = cat.name)
+                        changed = true
+                    }
+                }
+                if (r.excludePersonal && !e.excludePersonal) {
+                    updated = updated.copy(excludePersonal = true)
+                    changed = true
+                }
+                r.setParty?.let { p ->
+                    if (e.party != p) {
+                        updated = updated.copy(party = p)
+                        changed = true
+                    }
+                }
+                if (changed) break // first match wins
+            }
+
+            if (changed) transactionDao.update(updated)
+        }
+    }
 }

@@ -45,8 +45,6 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun HomePreview() {
     HomeScreen(
-        currentBalanceRon = "1.234,56 RON",
-        totalSavingsRon = "4.000,00 RON",
         onViewSavings = {}, onViewTransactions = {},
         onViewRecurring = {}, onViewExpenses = {}
     )

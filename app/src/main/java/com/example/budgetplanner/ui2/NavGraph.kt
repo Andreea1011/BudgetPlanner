@@ -84,14 +84,13 @@ fun BudgetNavGraph(
     ) {
         composable(Dest.Home.route) {
             HomeScreen(
-                currentBalanceRon = "INSERT VALUE HERE",
-                totalSavingsRon = "INSERT VALUE HERE",
                 onViewSavings = { navController.navigate(Dest.Savings.route) },
                 onViewTransactions = { navController.navigate(Dest.Transactions.route) },
-                onViewRecurring = { navController.navigate(Dest.Rent.route) }, // <-- NEW
-                onViewExpenses = { navController.navigate("expenses") },
+                onViewRecurring = { navController.navigate(Dest.Rent.route) },
+                onViewExpenses = { /* TODO: Add Expenses Screen route */ }
             )
         }
+
 
         composable("transactions") {
             com.example.budgetplanner.ui2.transactions.TransactionsScreen()

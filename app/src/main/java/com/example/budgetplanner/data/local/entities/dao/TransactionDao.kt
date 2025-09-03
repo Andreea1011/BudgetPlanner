@@ -86,4 +86,27 @@ interface TransactionDao {
 """)
     suspend fun getBetween(start: Long, end: Long): List<TransactionEntity>
 
+    /** Net sum of all transactions (credits positive, expenses negative). */
+    @Query("SELECT COALESCE(SUM(amountRon), 0) FROM transactions")
+    fun observeNetSum(): kotlinx.coroutines.flow.Flow<Double>
+
+    /**
+     * Personal spend this month (RON), filtered:
+     * - Only expenses (amountRon < 0)
+     * - excludePersonal = 0/NULL (i.e., not excluded)
+     * - party != 'MOM' (null or other values count as personal)
+     */
+    @Query("""
+        SELECT COALESCE(SUM(amountRon), 0)
+        FROM transactions
+        WHERE timestamp >= :start AND timestamp < :end
+          AND amountRon < 0
+          AND (excludePersonal IS NULL OR excludePersonal = 0)
+          AND (party IS NULL OR party <> 'MOM')
+    """)
+    fun observePersonalSpendBetween(
+        start: Long,
+        end: Long
+    ): kotlinx.coroutines.flow.Flow<Double>
+
 }

@@ -233,6 +233,13 @@ class TransactionsViewModel(private val app: Application) : AndroidViewModel(app
         _ui.update { it.copy(totalPersonalSpend = personal, totalOpenForMom = openMom) }
     }
 
+    fun autoLabel() = viewModelScope.launch {
+        val zone = ZoneId.systemDefault()
+        repo.applyRulesToMonth(_ui.value.month, zone)
+        // the list will refresh automatically because you're observing the month from Room
+    }
+
+
 }
 
 data class ExpenseCoverage(val total: Double, val covered: Double) {
