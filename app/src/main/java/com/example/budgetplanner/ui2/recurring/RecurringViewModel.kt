@@ -11,157 +11,104 @@ import com.example.budgetplanner.data.repository.RateRepository
 import com.example.budgetplanner.data.repository.RecurringRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 import java.time.ZoneId
+import kotlin.math.round
 
-/* ----------------- UI models ----------------- */
-
-enum class Edited { NONE, EUR, RON }
-
-data class RecurringRowUi(
-    val name: String,
-    val eur: Double?,     // nullable if empty
-    val ron: Double?,     // nullable if empty
-    val edited: Edited = Edited.NONE
-)
-
-data class RecurringUiState(
+// --- UI STATE (rows = Map<String, Pair<EUR?, RON?>>) ---
+data class RecurringUi(
     val month: YearMonth = YearMonth.now(),
-    val rateEurRon: Double = 5.0,
-    val rows: Map<String, RecurringRowUi> = emptyMap(),
+    val rateEurRon: Double = 5.00,
+    val rows: Map<String, Pair<Double?, Double?>> = emptyMap(),
     val totalRon: Double = 0.0,
     val error: String? = null
 )
 
-/* ----------------- ViewModel ----------------- */
-
 class RecurringViewModel(app: Application) : AndroidViewModel(app) {
-
     private val zone: ZoneId = ZoneId.systemDefault()
-    private val repo: RecurringRepository =
-        (app as BudgetApplication).recurringRepository
-    private val rateRepository: RateRepository =
-        (app as BudgetApplication).rateRepository
+    private val repo: RecurringRepository = (app as BudgetApplication).recurringRepository
+    private val rateRepo: RateRepository = (app as BudgetApplication).rateRepository
+
+    private val _ui = MutableStateFlow(RecurringUi())
+    val ui: StateFlow<RecurringUi> = _ui.asStateFlow()
 
     private val names = listOf("RENT", "GAZ", "CURENT", "DIGI", "INTRETINERE")
 
-    private val _ui = MutableStateFlow(
-        RecurringUiState(
-            rows = defaultRows(),
-            rateEurRon = 5.0
-        ).recalcTotal()
-    )
-    val ui: StateFlow<RecurringUiState> = _ui
-
-    init {
-        loadMonth(_ui.value.month)
-    }
+    init { loadMonth(_ui.value.month) }
 
     fun prevMonth() = loadMonth(_ui.value.month.minusMonths(1))
     fun nextMonth() = loadMonth(_ui.value.month.plusMonths(1))
 
     private fun loadMonth(m: YearMonth) = viewModelScope.launch {
         val items: List<RecurringExpenseEntity> = repo.observeMonth(m, zone).first()
-        val rows: Map<String, RecurringRowUi> = names.associateWith { n ->
-            val e = items.find { it.name == n }
-            RecurringRowUi(name = n, eur = e?.amountEur, ron = e?.amountRon, edited = Edited.NONE)
-        }
+        val map: Map<String, Pair<Double?, Double?>> =
+            names.associateWith { n ->
+                val e = items.find { it.name == n }
+                (e?.amountEur) to (e?.amountRon)
+            }
         val total = repo.totalRon(m, zone)
-        _ui.update { it.copy(month = m, rows = rows, totalRon = total, error = null) }
+        _ui.update { it.copy(month = m, rows = map, totalRon = total, error = null) }
     }
 
-    /* ----- user edits ----- */
+    fun updateRate(rate: Double) {
+        _ui.update { it.copy(rateEurRon = rate) }
+        // No mass recalculation here—screen mirrors locally while typing.
+    }
 
+    /** When user types in EUR, update local rows (and recompute RON for that row). */
     fun setEur(name: String, value: Double?) {
         _ui.update { s ->
-            val row = s.rows[name] ?: return
-            val newRon = value?.let { (it * s.rateEurRon).round2() }
-            val newRow = row.copy(eur = value, ron = newRon, edited = Edited.EUR)
-            s.copy(rows = s.rows + (name to newRow)).recalcTotal()
+            val old = s.rows[name] ?: (null to null)
+            val newRon = value?.let { round2(it * s.rateEurRon) }
+            val newRows = s.rows.toMutableMap().apply { put(name, value to newRon) }
+            s.copy(rows = newRows, totalRon = totalRon(newRows))
         }
     }
 
+    /** When user types in RON, update local rows (and recompute EUR for that row). */
     fun setRon(name: String, value: Double?) {
         _ui.update { s ->
-            val row = s.rows[name] ?: return
-            val newEur = value?.let { if (s.rateEurRon > 0) (it / s.rateEurRon).round2() else row.eur }
-            val newRow = row.copy(ron = value, eur = newEur, edited = Edited.RON)
-            s.copy(rows = s.rows + (name to newRow)).recalcTotal()
+            val old = s.rows[name] ?: (null to null)
+            val newEur = value?.let { if (s.rateEurRon > 0) round2(it / s.rateEurRon) else old.first }
+            val newRows = s.rows.toMutableMap().apply { put(name, newEur to value) }
+            s.copy(rows = newRows, totalRon = totalRon(newRows))
         }
     }
 
-    fun saveRow(name: String) = viewModelScope.launch {
-        val row = _ui.value.rows[name]
-        val eur = row?.eur
-        val ron = row?.ron
+    /** Save based on what’s currently typed in the UI text fields. */
+    fun saveRowImmediate(name: String, eurText: String, ronText: String) = viewModelScope.launch {
+        val eur = eurText.toDoubleOrNull()
+        val ron = ronText.toDoubleOrNull()
         val rate = _ui.value.rateEurRon
         repo.save(_ui.value.month, zone, name, eur, ron, rate)
-        val total = repo.totalRon(_ui.value.month, zone)
-        _ui.update { it.copy(totalRon = total) }
-    }
 
-    /* ----- rate handling ----- */
+        // Reload to reflect Room truth + recompute totals.
+        loadMonth(_ui.value.month)
+    }
 
     fun fetchRate() = viewModelScope.launch {
-        val res = rateRepository.latestEurRon()
-        res.onSuccess { rate ->
-            _ui.update { it.copy(rateEurRon = rate, error = null) }
-            recalcAllForNewRate()
-        }.onFailure { e ->
-            _ui.update { it.copy(error = e.message ?: "Rate fetch failed") }
-        }
+        rateRepo.latestEurRon()
+            .onSuccess { r -> _ui.update { it.copy(rateEurRon = r, error = null) } }
+            .onFailure { e -> _ui.update { it.copy(error = e.message ?: "Rate fetch failed") } }
     }
 
-    /** Manually set the EUR→RON rate from the text field. Recalculates all rows. */
-    fun updateRate(rate: Double) {
-        _ui.update { it.copy(rateEurRon = rate, error = null) }
-        recalcAllForNewRate()
-    }
+    private fun totalRon(map: Map<String, Pair<Double?, Double?>>): Double =
+        map.values.sumOf { it.second ?: 0.0 }
 
-
-    private fun recalcAllForNewRate() {
-        _ui.update { s ->
-            val r = s.rateEurRon
-            val updated = s.rows.mapValues { (_, row) ->
-                when (row.edited) {
-                    Edited.EUR -> row.copy(ron = row.eur?.let { (it * r).round2() })
-                    Edited.RON -> row.copy(eur = row.ron?.let { if (r > 0) (it / r).round2() else row.eur })
-                    Edited.NONE -> row
-                }
-            }
-            s.copy(rows = updated).recalcTotal()
-        }
-    }
-
-    /* ----- helpers ----- */
-
-    private fun RecurringUiState.recalcTotal(): RecurringUiState =
-        copy(totalRon = rows.values.sumOf { it.ron ?: 0.0 })
-
-    private fun Double.round2(): Double =
-        kotlin.math.round(this * 100.0) / 100.0
-
-    private fun defaultRows(): Map<String, RecurringRowUi> = listOf(
-        // prefill Rent with 350 EUR so RON auto-computes when rate is fetched/changed
-        "RENT" to RecurringRowUi("RENT", eur = 350.0, ron = null, edited = Edited.EUR),
-        "GAZ" to RecurringRowUi("GAZ", eur = null, ron = null),
-        "CURENT" to RecurringRowUi("CURENT", eur = null, ron = null),
-        "DIGI" to RecurringRowUi("DIGI", eur = null, ron = null),
-        "INTRETINERE" to RecurringRowUi("INTRETINERE", eur = null, ron = null)
-    ).toMap()
+    private fun round2(x: Double) = round(x * 100.0) / 100.0
 }
 
-/* -------------- factory -------------- */
-
+// Factory
 class RecurringVMFactory(private val app: Application) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(RecurringViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
             return RecurringViewModel(app) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        throw IllegalArgumentException("Unknown VM class")
     }
 }

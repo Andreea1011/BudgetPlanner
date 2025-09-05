@@ -18,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -27,6 +26,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -62,7 +64,11 @@ fun RecurringScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Month selector
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 OutlinedButton(onClick = { vm.prevMonth() }) { Text("◀") }
                 val label = ui.month.format(
                     DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())
@@ -101,56 +107,87 @@ fun RecurringScreen(onBack: () -> Unit) {
             val order = listOf("RENT", "GAZ", "CURENT", "DIGI", "INTRETINERE")
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth().weight(1f, fill = true)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = true)
             ) {
                 items(order) { name ->
-                    val row = ui.rows[name]
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) },
-                            modifier = Modifier.weight(1f)
-                        )
+                    val base = ui.rows[name]  // Pair<Double?, Double?> or null
 
-                        OutlinedTextField(
-                            value = row?.eur?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "",
-                            onValueChange = { txt ->
-                                vm.setEur(name, txt.toDoubleOrNull())
-                            },
-                            placeholder = { Text("0") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        OutlinedTextField(
-                            value = row?.ron?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "",
-                            onValueChange = { txt ->
-                                vm.setRon(name, txt.toDoubleOrNull())
-                            },
-                            placeholder = { Text("0") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
+                    // Local text state, initialized from VM ONLY when month or row changes
+                    var eurText by remember(ui.month, name, base?.first) {
+                        mutableStateOf(base?.first?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "")
+                    }
+                    var ronText by remember(ui.month, name, base?.second) {
+                        mutableStateOf(base?.second?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "")
                     }
 
-                    // save row
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { vm.saveRow(name) }) { Text("Save") }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = eurText,
+                                onValueChange = { txt ->
+                                    eurText = txt
+                                    txt.toDoubleOrNull()?.let { eur ->
+                                        // mirror locally if valid
+                                        ronText = String.format(Locale.getDefault(), "%.2f", eur * ui.rateEurRon)
+                                    }
+                                },
+                                placeholder = { Text("0") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = ronText,
+                                onValueChange = { txt ->
+                                    ronText = txt
+                                    txt.toDoubleOrNull()?.let { ron ->
+                                        if (ui.rateEurRon != 0.0) {
+                                            val eur = ron / ui.rateEurRon
+                                            eurText = String.format(Locale.getDefault(), "%.2f", eur)
+                                        }
+                                    }
+                                },
+                                placeholder = { Text("0") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(
+                                onClick = {
+                                    // Save what’s typed right now
+                                    vm.saveRowImmediate(
+                                        name = name,
+                                        eurText = eurText,
+                                        ronText = ronText
+                                    )
+                                }
+                            ) { Text("Save") }
+                        }
+                        Divider()
                     }
-                    Divider()
                 }
             }
 
             // Footer totals
             val totalRon = ui.totalRon
-            val totalEur = ui.rows.values.mapNotNull { it.eur }.sum()
-            Text(
-                "Total EUR (computed): ${"%.2f".format(totalEur)}   •   Total RON: ${"%.2f".format(totalRon)}"
-            )
+            val totalEur = ui.rows.values.mapNotNull { it.first }.sum()
+            Text("Total EUR (computed): ${"%.2f".format(totalEur)}   •   Total RON: ${"%.2f".format(totalRon)}")
 
-            ui.error?.let { Text("Error: $it", color = colorScheme.error) }
+            ui.error?.let { Text("Error: $it", color = MaterialTheme.colorScheme.error) }
         }
     }
 }
