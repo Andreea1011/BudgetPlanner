@@ -2,20 +2,20 @@ package com.example.budgetplanner.data.repository
 
 
 import com.example.budgetplanner.data.local.entities.MerchantRuleEntity
-import com.example.budgetplanner.data.local.entities.dao.TransactionDao
-import com.example.budgetplanner.data.local.entities.dao.ReimbursementLinkDao
-import com.example.budgetplanner.data.local.entities.dao.SavingsDao   // if you’re using savings now
-import com.example.budgetplanner.data.local.entities.ReimbursementLinkEntity
-import com.example.budgetplanner.data.local.entities.TransactionEntity
 import com.example.budgetplanner.data.local.entities.SavingsEntity
+import com.example.budgetplanner.data.local.entities.TransactionEntity
 import com.example.budgetplanner.data.local.entities.dao.MerchantRuleDao
+import com.example.budgetplanner.data.local.entities.dao.ReimbursementLinkDao
+import com.example.budgetplanner.data.local.entities.dao.TransactionDao
 import com.example.budgetplanner.domain.model.Category
 import com.example.budgetplanner.domain.model.Transaction
+import com.example.budgetplanner.ui2.transactions.CreditAllocation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.time.*
+import java.time.YearMonth
+import java.time.ZoneId
 
 
 class BudgetRepository(
@@ -146,13 +146,14 @@ class BudgetRepository(
     }
 
     suspend fun allocateSurplusToSavings(surplus: Double, potName: String = "Mom surplus") {
-        val existing = savingsDao?.getByName(potName)
+        val existing = savingsDao.getByName(potName)
         if (existing == null) {
-            val id = savingsDao?.insert(com.example.budgetplanner.data.local.entities.SavingsEntity(name = potName, amountRon = surplus))
+            savingsDao.insert(SavingsEntity(name = potName, amountRon = surplus))
         } else {
             savingsDao.updateAmount(existing.id, existing.amountRon + surplus)
         }
     }
+
 
 
     // small internal: credits from MOM in a window (newest first)
@@ -288,7 +289,7 @@ class BudgetRepository(
      */
     suspend fun applyRulesToMonth(month: YearMonth, zone: ZoneId): Result<Int> = withContext(
         Dispatchers.IO) {
-        val dao = merchantRuleDao ?: return@withContext Result.failure(IllegalStateException("Rules DAO missing"))
+        val dao = merchantRuleDao
         val rules = dao.getAll()
         if (rules.isEmpty()) return@withContext Result.success(0)
 
@@ -324,7 +325,7 @@ class BudgetRepository(
 
     /** Seed a few defaults (only if the table is empty). */
     suspend fun seedDefaultRulesIfEmpty() = withContext(Dispatchers.IO) {
-        val dao = merchantRuleDao ?: return@withContext
+        val dao = merchantRuleDao
         if (dao.count() > 0) return@withContext
 
         val list = listOf(
@@ -334,12 +335,20 @@ class BudgetRepository(
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "KAUFLAND",   category = "FOOD", priority = 10),
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "LIDL",       category = "FOOD", priority = 10),
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "PROFI",      category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "PENNY",      category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "DIANA",      category = "FOOD", priority = 10),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "ANNABELLA",      category = "FOOD", priority = 10),
+
+
+
 
             // Pharmacies → FARMACY and exclude from personal spend
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "CATENA",     category = "FARMACY", excludePersonal = true, priority = 20),
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "SENSIBLU",   category = "FARMACY", excludePersonal = true, priority = 20),
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "HELP NET",   category = "FARMACY", excludePersonal = true, priority = 20),
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "DR.MAX",     category = "FARMACY", excludePersonal = true, priority = 20),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "BAJAN",      category = "FARMACY", excludePersonal = true, priority = 20),
+
 
             // Transport examples
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "STB",        category = "TRANSPORT", priority = 30),
@@ -348,7 +357,7 @@ class BudgetRepository(
             MerchantRuleEntity(matchType = "CONTAINS", pattern = "BOLT",       category = "TRANSPORT", priority = 30),
 
             // Incoming transfers from Mom (example)
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "MAMA",       category = "OTHER", setParty = "MOM", priority = 5),
+            MerchantRuleEntity(matchType = "CONTAINS", pattern = "MONICA ELENA LITA",       category = "OTHER", setParty = "MOM", priority = 5),
         )
         list.forEach { dao.insert(it) }
     }
@@ -401,5 +410,21 @@ class BudgetRepository(
 
             if (changed) transactionDao.update(updated)
         }
+    }
+
+    private val MOM_POT = "Mom surplus"
+
+    suspend fun markCreditFromMom(creditId: Long): CreditAllocation { // returns what happened, optional
+        // 1) tag as MOM, in case it wasn't
+        transactionDao.setParty(creditId, "MOM")
+
+        // 2) allocate to expenses in the look-back window; capture surplus
+        val (allocated, count, surplus) = applyMomReimbursementForCredit(creditId)
+
+        // 3) if extra money remained, push it to the savings pot
+        if (surplus > 0.0) {
+            allocateSurplusToSavings(surplus, MOM_POT)
+        }
+        return CreditAllocation(allocated = allocated, items = count, surplus = surplus)
     }
 }

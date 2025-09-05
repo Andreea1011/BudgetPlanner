@@ -20,7 +20,7 @@ interface TransactionDao {
     """)
     fun observeBetween(startMillis: Long, endMillis: Long): Flow<List<TransactionEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(e: TransactionEntity): Long
 
     @Update

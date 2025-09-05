@@ -1,18 +1,43 @@
 package com.example.budgetplanner.ui2.savings
 
 import android.app.Application
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.Locale
@@ -27,7 +52,7 @@ fun SavingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Savings") },
+                title = { Text("Savings", style = MaterialTheme.typography.headlineLarge) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -52,16 +77,19 @@ fun SavingsScreen(onBack: () -> Unit) {
 
             // Headers
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Name", modifier = Modifier.weight(1f))
-                Text("RON", modifier = Modifier.width(120.dp))
-                Text("EUR", modifier = Modifier.width(120.dp))
-                Spacer(Modifier.width(48.dp)) // delete icon space
+                Text("Name", modifier = Modifier.weight(1.6f))
+                Text("RON", modifier = Modifier.weight(0.9f))
+                Text("EUR", modifier = Modifier.weight(0.9f))
+                Spacer(Modifier.width(40.dp))
             }
-            Divider()
+            Divider(Modifier.padding(top = 2.dp, bottom = 6.dp))
 
             // List – Mom surplus row first (if exists), then other pots
             val (momRows, otherRows) = ui.rows.partition { it.name.equals("Mom surplus", true) }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            )  {
                 if (momRows.isNotEmpty()) {
                     item(key = "mom_row") {
                         SavingsRow(
@@ -71,7 +99,7 @@ fun SavingsScreen(onBack: () -> Unit) {
                             highlight = true,
                             deletable = false               // keep mom pot
                         )
-                        Divider()
+                        Divider(Modifier.padding(top = 6.dp))
                     }
                 }
                 items(otherRows, key = { it.id }) { row ->
@@ -80,7 +108,7 @@ fun SavingsScreen(onBack: () -> Unit) {
                         onSet = vm::updateAmount,
                         onDelete = vm::delete
                     )
-                    Divider()
+                    Divider(Modifier.padding(top = 6.dp))
                 }
             }
         }
@@ -107,12 +135,18 @@ private fun SavingsRow(
     }
 
     Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             row.name,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1.6f),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
             style = if (highlight) MaterialTheme.typography.titleMedium else LocalTextStyle.current
         )
 
@@ -124,12 +158,13 @@ private fun SavingsRow(
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(0.9f)
         )
 
         Text(
             row.amountEur?.let { String.format(Locale.getDefault(), "%.2f", it) } ?: "-",
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(0.9f),
+            style = MaterialTheme.typography.bodyLarge
         )
 
         IconButton(

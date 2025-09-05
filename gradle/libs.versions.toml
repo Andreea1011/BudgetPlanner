@@ -1,13 +1,20 @@
 [versions]
+accompanistSystemuicontroller = "0.34.0"
 activityComposeVersion = "1.10.1"
 agp = "8.12.2"
 androidxActivityCompose = "1.10.1"
 androidxComposeBom = "2025.08.01"
 coilCompose = "2.7.0"
+compose = "2.1.3"
 composeBomVersion = "2025.08.01"
+composeM3 = "2.1.3"
+composeM3Version = "2.1.3"
+composeVersion = "2.1.3"
 converterMoshi = "3.0.0"
 converterMoshiVersion = "2.11.0"
-converterScalars = "2.11.0"
+converterScalars = "3.0.0"
+core = "2.1.3"
+coreVersion = "2.1.3"
 datastorePreferences = "1.1.7"
 datastorePreferencesVersion = "1.1.7"
 desugar_jdk_libs = "2.1.5"
@@ -29,37 +36,64 @@ moshi = "1.15.2"
 moshiKotlin = "1.15.2"
 navigationCompose = "2.9.3"
 retrofit = "3.0.0"
-retrofitVersion = "2.11.0"
+retrofitVersion = "3.0.0"
 roomCompiler = "2.7.2"
 roomRuntime = "2.7.2"
+animatedVectorDrawable = "28.0.0"
 
 [libraries]
+#noinspection SimilarGradleDependency
+accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
 androidx-activity-compose-v1101 = { module = "androidx.activity:activity-compose", version.ref = "activityComposeVersion" }
+#noinspection SimilarGradleDependency
 androidx-activity-compose-v190 = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
+#noinspection SimilarGradleDependency
 androidx-compose-bom-v20240600 = { module = "androidx.compose:compose-bom", version.ref = "composeBomVersion" }
+#noinspection SimilarGradleDependency
 androidx-compose-bom-v20250801 = { module = "androidx.compose:compose-bom", version.ref = "androidxComposeBom" }
 androidx-compose-material3-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 androidx-compose-ui-ui = { module = "androidx.compose.ui:ui" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+#noinspection SimilarGradleDependency
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+#noinspection SimilarGradleDependency
 androidx-datastore-preferences-v111 = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferencesVersion" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
+#noinspection SimilarGradleDependency
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
+#noinspection SimilarGradleDependency
 androidx-material-icons-extended-v171 = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtendedVersion" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+#noinspection SimilarGradleDependency
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
+#noinspection SimilarGradleDependency
 androidx-room-compiler-v261 = { module = "androidx.room:room-compiler", version.ref = "roomCompiler" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomRuntime" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }
+androidx-ui-text-google-fonts = { module = "androidx.compose.ui:ui-text-google-fonts" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
+#noinspection SimilarGradleDependency
+compose = { module = "com.patrykandpatrick.vico:compose", version.ref = "compose" }
+#noinspection SimilarGradleDependency
+compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "composeM3" }
+#noinspection SimilarGradleDependency
+compose-m3-v213 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "composeM3Version" }
+#noinspection SimilarGradleDependency
+compose-v213 = { module = "com.patrykandpatrick.vico:compose", version.ref = "composeVersion" }
 converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "converterMoshi" }
 converter-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "converterScalars" }
+#noinspection SimilarGradleDependency
+core = { module = "com.patrykandpatrick.vico:core", version.ref = "core" }
+#noinspection SimilarGradleDependency
+core-v213 = { module = "com.patrykandpatrick.vico:core", version.ref = "coreVersion" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+#noinspection SimilarGradleDependency
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+#noinspection SimilarGradleDependency
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
@@ -73,9 +107,12 @@ material3 = { module = "androidx.compose.material3:material3" }
 moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
 moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "moshiKotlin" }
 retro_fit2-converter-moshi = { module = "com.squareup.retro fit2:converter-moshi", version.ref = "converterMoshiVersion" }
+#noinspection SimilarGradleDependency
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+#noinspection SimilarGradleDependency
 retrofit-v2110 = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofitVersion" }
 ui = { module = "androidx.compose.ui:ui" }
+animated-vector-drawable = { group = "com.android.support", name = "animated-vector-drawable", version.ref = "animatedVectorDrawable" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

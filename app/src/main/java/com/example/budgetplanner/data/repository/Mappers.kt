@@ -2,7 +2,9 @@ package com.example.budgetplanner.data.repository
 
 
 import com.example.budgetplanner.data.local.entities.TransactionEntity
-import com.example.budgetplanner.domain.model.*
+import com.example.budgetplanner.domain.model.Category
+import com.example.budgetplanner.domain.model.Source
+import com.example.budgetplanner.domain.model.Transaction
 
 fun TransactionEntity.toDomain() = Transaction(
     id = id,
@@ -25,6 +27,7 @@ fun Transaction.toEntity() = TransactionEntity(
     originalAmount = originalAmount,
     originalCurrency = originalCurrency,
     merchant = merchant,
+    merchantNorm = merchant?.trim()?.uppercase() ?: "",
     note = note,
     category = category.name,
     source = source.name,

@@ -63,10 +63,14 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.icons.extended)
-
+    // Vico charts for Compose + Material3
+    implementation(libs.core.v213)
+    implementation(libs.compose.v213)
+    implementation(libs.compose.m3.v213) // f
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.animated.vector.drawable)
     // If your catalog doesn’t have a compiler alias, add a direct coord:
     kapt(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
@@ -98,6 +102,11 @@ dependencies {
 // DataStore
     implementation(libs.androidx.datastore.preferences.v111)
 
+// Google Fonts loader for Compose
+    implementation(libs.androidx.ui.text.google.fonts)
+
+// System bars control (status/navigation) for pure black
+    implementation(libs.accompanist.systemuicontroller)
 
     // (tests / debug tooling as you had)
     testImplementation(libs.junit)

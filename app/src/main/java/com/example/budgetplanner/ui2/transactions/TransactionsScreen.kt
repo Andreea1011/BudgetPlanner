@@ -1,31 +1,82 @@
 package com.example.budgetplanner.ui2.transactions
 
+import android.Manifest
 import android.app.Application
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.budgetplanner.sms.SmsImporter
 import com.example.budgetplanner.ui2.components.TransactionBottomSheet
+import kotlinx.coroutines.launch
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionsScreen() {
+fun TransactionsScreen(onBack: (() -> Unit)? = null) {
     val app = LocalContext.current.applicationContext as Application
     val vm: TransactionsViewModel = viewModel(factory = TransactionsVMFactory(app))
 
     val state by vm.ui.collectAsState()
     val selected = state.selected
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    // Single bottom sheet (details + toggles + actions)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val readSmsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        scope.launch {
+            if (granted) {
+                val imported = SmsImporter.importRecent(ctx, days = 14)
+                snackbarHostState.showSnackbar("Imported $imported SMS transactions")
+                runCatching { vm.autoLabel() }
+            } else {
+                snackbarHostState.showSnackbar("SMS permission denied")
+            }
+        }
+    }
+
     if (selected != null) {
         TransactionBottomSheet(
             tx = selected,
@@ -34,38 +85,49 @@ fun TransactionsScreen() {
             onToggleExclude = { checked -> vm.setExcludePersonal(selected.id, checked) },
             onToggleMom = { checked -> vm.setParty(selected.id, if (checked) "MOM" else null) },
             onDelete = { vm.deleteSelected() },
-            // show live info in the sheet:
             expenseCoverage = state.expenseCoverage,
             creditAllocation = state.creditAllocation
         )
     }
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Transactions") },
-                actions = {
-                    TextButton(onClick = { vm.seedDemo() }) { Text("Seed") }
-                    TextButton(onClick = { vm.sync() }, enabled = !state.isLoading) {
-                        Text(if (state.isLoading) "Syncing…" else "Sync")
+                title = { Text("Transactions", style = MaterialTheme.typography.headlineLarge) },
+                navigationIcon = {
+                    IconButton(onClick = { onBack?.invoke() ?: backDispatcher?.onBackPressed() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
-                    TextButton(onClick = { vm.seedMomScenario() }) { Text("Seed Mom") }
-                    TextButton(onClick = { vm.autoLabel() }) { Text("Auto-label") }
-                    TextButton(onClick = { vm.dumpMomLinksToLog() }) { Text("Dump") }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
+
         Column(Modifier.padding(padding).padding(16.dp)) {
 
-            // month selector
+            // ACTION BUTTONS under the title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                ActionPillButton(text = "Auto-label") { vm.autoLabel() }
+                Spacer(Modifier.width(12.dp))
+                ActionPillButton(text = "Import SMS") {
+                    readSmsLauncher.launch(Manifest.permission.READ_SMS)
+                }
+            }
+
+            // Month selector
             MonthSelector(
                 month = state.month,
                 onPrev = { vm.prevMonth() },
                 onNext = { vm.nextMonth() }
             )
 
-            // month totals line
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "Personal spend: ${
@@ -78,7 +140,6 @@ fun TransactionsScreen() {
 
             Spacer(Modifier.height(12.dp))
 
-            // table
             TransactionsTable(
                 ui = state,
                 onRowClick = { vm.onRowClick(it.tx) },
@@ -94,8 +155,27 @@ fun TransactionsScreen() {
 }
 
 @Composable
+private fun ActionPillButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.onSurface, // white on dark
+            contentColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = MaterialTheme.shapes.large,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
 private fun MonthSelector(month: YearMonth, onPrev: () -> Unit, onNext: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         OutlinedButton(onClick = onPrev) { Text("◀") }
         val label = month.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()))
             .replaceFirstChar { it.titlecase(Locale.getDefault()) }

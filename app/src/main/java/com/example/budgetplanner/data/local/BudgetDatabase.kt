@@ -5,8 +5,15 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.budgetplanner.data.local.entities.*
-import com.example.budgetplanner.data.local.entities.dao.*
+import com.example.budgetplanner.data.local.entities.MerchantRuleEntity
+import com.example.budgetplanner.data.local.entities.RecurringExpenseEntity
+import com.example.budgetplanner.data.local.entities.ReimbursementLinkEntity
+import com.example.budgetplanner.data.local.entities.SavingsEntity
+import com.example.budgetplanner.data.local.entities.TransactionEntity
+import com.example.budgetplanner.data.local.entities.dao.RecurringExpenseDao
+import com.example.budgetplanner.data.local.entities.dao.ReimbursementLinkDao
+import com.example.budgetplanner.data.local.entities.dao.SavingsDao
+import com.example.budgetplanner.data.local.entities.dao.TransactionDao
 
 @Database(
     entities = [
@@ -16,8 +23,8 @@ import com.example.budgetplanner.data.local.entities.dao.*
         MerchantRuleEntity::class,          // <-- rules entity
         RecurringExpenseEntity::class       // if you use recurring table
     ],
-    version = 2,                            // bump when adding MerchantRuleEntity
-    exportSchema = false
+    version = 3,                            // bump when adding MerchantRuleEntity
+    exportSchema = true
 )
 abstract class BudgetDatabase : RoomDatabase() {
 

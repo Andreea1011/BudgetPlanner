@@ -1,14 +1,18 @@
 package com.example.budgetplanner.ui2
 
-import androidx.compose.foundation.layout.padding   // <— for Modifier.padding
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.AccountBalance
-
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -18,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.budgetplanner.ui2.home.HomeScreen
 import com.example.budgetplanner.ui2.recurring.RecurringScreen
+import com.example.budgetplanner.ui2.transactions.TransactionsScreen
 
 /**
  * Call BudgetApp() from your MainActivity's setContent { ... }.
@@ -38,34 +43,33 @@ fun BudgetApp() {
 /** Destinations used in the bottom bar */
 sealed class Dest(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Home : Dest("home", "Home", Icons.Filled.Home)
-    data object Transactions : Dest("transactions", "Transactions", Icons.Filled.ReceiptLong)
+    data object Transactions : Dest("transactions", "Transactions",
+        Icons.AutoMirrored.Filled.ReceiptLong
+    )
     data object Rent : Dest("rent", "Recurring", Icons.Filled.Assessment)
     data object Savings : Dest("savings", "Savings", Icons.Filled.AccountBalance)
 
-    companion object {
-        val bottom = listOf(Home, Transactions, Rent, Savings)
-    }
+    data object Expenses : Dest("expenses", "Expenses", Icons.Filled.Assessment)     // <— NEW
+    companion object { val bottom = listOf(Home, Transactions, Rent, Savings, Expenses) }
 }
+
 
 @Composable
 private fun BottomBar(navController: NavHostController) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-
     NavigationBar {
-        Dest.Companion.bottom.forEach { dest ->
-            val selected = currentRoute == dest.route
+        Dest.bottom.forEach { dest ->
             NavigationBarItem(
-                selected = selected,
+                selected = currentRoute == dest.route,
                 onClick = {
                     navController.navigate(dest.route) {
-                        // Avoid building a huge back stack when re-tapping items
                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
                 },
-                icon = { Icon(dest.icon, contentDescription = dest.label) },
+                icon = { Icon(dest.icon, dest.label) },
                 label = { Text(dest.label) }
             )
         }
@@ -87,13 +91,23 @@ fun BudgetNavGraph(
                 onViewSavings = { navController.navigate(Dest.Savings.route) },
                 onViewTransactions = { navController.navigate(Dest.Transactions.route) },
                 onViewRecurring = { navController.navigate(Dest.Rent.route) },
-                onViewExpenses = { /* TODO: Add Expenses Screen route */ }
+                onViewExpenses = { navController.navigate(Dest.Expenses.route) }
             )
         }
 
 
-        composable("transactions") {
-            com.example.budgetplanner.ui2.transactions.TransactionsScreen()
+        composable(Dest.Transactions.route) {
+            TransactionsScreen(
+                onBack = {
+                    // Try popping first; if there’s nothing to pop, go to home
+                    if (!navController.popBackStack()) {
+                        navController.navigate("home") {
+                            launchSingleTop = true;
+                            popUpTo("home") { inclusive = false }
+                        }
+                    }
+                }
+            )
         }
 
         composable(Dest.Rent.route) {
@@ -101,7 +115,7 @@ fun BudgetNavGraph(
             RecurringScreen(onBack = { navController.popBackStack() })
         }
 
-        composable("expenses") {
+        composable(Dest.Expenses.route) {
             com.example.budgetplanner.ui2.expenses.ExpensesScreen(
                 onBack = { navController.popBackStack() }
             )

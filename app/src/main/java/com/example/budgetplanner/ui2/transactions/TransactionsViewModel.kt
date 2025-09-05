@@ -1,25 +1,26 @@
 package com.example.budgetplanner.ui2.transactions
 
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
 import android.app.Application
-import androidx.lifecycle.*
-import com.example.budgetplanner.BudgetApplication
-import com.example.budgetplanner.domain.model.Transaction
-import kotlinx.coroutines.flow.*
-import java.time.*
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import com.example.budgetplanner.domain.model.Category
-import com.example.budgetplanner.domain.model.Source
-import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.budgetplanner.ui2.transactions.TransactionsVMFactory
-import com.example.budgetplanner.ui2.transactions.TransactionsViewModel
-
+import androidx.lifecycle.viewModelScope
+import com.example.budgetplanner.BudgetApplication
+import com.example.budgetplanner.domain.model.Category
+import com.example.budgetplanner.domain.model.Source
+import com.example.budgetplanner.domain.model.Transaction
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 
 data class TxRowUi(val tx: Transaction)
@@ -54,9 +55,25 @@ class TransactionsViewModel(private val app: Application) : AndroidViewModel(app
 
     fun sync() = viewModelScope.launch {
         _ui.update { it.copy(isLoading = true, error = null) }
-        val res = repo.syncMonthFromBank(_ui.value.month)
-        _ui.update { it.copy(isLoading = false, error = res.exceptionOrNull()?.message) }
+        val m = _ui.value.month
+        val res = repo.syncMonthFromBank(m)
+        // run auto-label regardless of success (it’s a no-op if nothing changed)
+        runCatching { repo.applyRulesToMonth(m, zone) }
+
+        // refresh the two totals line
+        val personal = repo.personalSpendForMonth(m, zone)
+        val openMom  = repo.openForMomForMonth(m, zone)
+
+        _ui.update {
+            it.copy(
+                isLoading = false,
+                error = res.exceptionOrNull()?.message,
+                totalPersonalSpend = personal,
+                totalOpenForMom = openMom
+            )
+        }
     }
+
 
     private fun selectMonth(m: YearMonth) {
         _ui.update { it.copy(month = m, isLoading = true, error = null) }
@@ -214,17 +231,18 @@ class TransactionsViewModel(private val app: Application) : AndroidViewModel(app
         refreshMonthTotals()
     }
 
+    // TransactionsViewModel.kt
     fun setParty(id: Long, party: String?) = viewModelScope.launch {
-        val t = ui.value.selected ?: return@launch
-        // Guard: only credits can be marked as From Mom
-        if (party == "MOM" && t.originalAmount <= 0) return@launch
-
         repo.setParty(id, party)
+
+        // If it became a MOM credit, immediately settle allocations + surplus → savings
         if (party == "MOM") {
-            runCatching { repo.applyMomReimbursementForCredit(id) }
+            runCatching { repo.markCreditFromMom(id) }
+            // optional: re-open sheet with new allocation numbers
+            refreshMonthTotals()
         }
-        refreshMonthTotals()
     }
+
 
     private suspend fun refreshMonthTotals() {
         val m = _ui.value.month

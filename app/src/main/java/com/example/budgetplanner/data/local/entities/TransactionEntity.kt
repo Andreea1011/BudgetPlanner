@@ -1,9 +1,20 @@
 package com.example.budgetplanner.data.local.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.budgetplanner.domain.model.Transaction
 
-@Entity(tableName = "transactions")
+@Entity(
+    tableName = "transactions",
+    indices = [
+        Index(
+            value = ["timestamp", "originalAmount", "originalCurrency", "merchantNorm"],
+            unique = true
+        )
+    ]
+)
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val timestamp: Long,                 // epoch millis (booking date at local midnight)
@@ -17,5 +28,16 @@ data class TransactionEntity(
     val pending: Boolean = false,
     val excludePersonal: Boolean = false,   // manually mark “for mom” etc.
     val party: String? = null,              // "MOM" on reimbursements (credits)
-    val reimbursedGroup: String? = null     // "MOM" when fully covered (nice to display)// optional soft-link label like "MOM"
+    val reimbursedGroup: String? = null,     // "MOM" when fully covered (nice to display)// optional soft-link label like "MOM"
+    @ColumnInfo(defaultValue = "") val merchantNorm: String = merchant?.trim()?.uppercase() ?: ""
+    )
+
+private fun Transaction.toEntity(): TransactionEntity =
+    TransactionEntity(
+        id = id,
+        timestamp = timestamp,
+        originalAmount = originalAmount,
+        originalCurrency = originalCurrency,
+        merchant = merchant,
+        merchantNorm = merchant?.trim()?.uppercase() ?: "",
     )
