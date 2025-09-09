@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- we save to internal cache so no storage permission is needed -->
+    <cache-path name="images" path="images/" />
+    <!-- optional: also allow external cache -->
+    <external-cache-path name="ext_images" path="images/" />
+</paths>

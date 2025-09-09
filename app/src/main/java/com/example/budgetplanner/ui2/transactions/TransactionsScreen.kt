@@ -8,8 +8,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,13 +22,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
@@ -51,13 +54,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.core.content.PermissionChecker
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.budgetplanner.sms.SmsImporter
 import com.example.budgetplanner.ui2.components.TransactionBottomSheet
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
+import java.io.File
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -90,10 +95,17 @@ fun TransactionsScreen(onBack: (() -> Unit)? = null) {
         }
     }
 
-    // --- Photo Picker for receipts (works for pick or capture) ---
+    // --- Camera + Gallery for receipts ---
+    var lastCapturedUri by remember { mutableStateOf<Uri?>(null) }
+    val takePicture = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) lastCapturedUri?.let { vm.onImagePicked(it) }
+    }
     val pickPhoto = rememberLauncherForActivityResult(PickVisualMedia()) { uri: Uri? ->
         uri?.let { vm.onImagePicked(it) }
     }
+    val newImageUri = rememberNewImageUri()
 
     if (selected != null) {
         TransactionBottomSheet(
@@ -138,9 +150,59 @@ fun TransactionsScreen(onBack: (() -> Unit)? = null) {
                     readSmsLauncher.launch(Manifest.permission.READ_SMS)
                 }
                 Spacer(Modifier.width(12.dp))
-                // NEW: Scan receipt
-                ActionPillButton(text = "Scan receipt") {
-                    pickPhoto.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+
+                var lastCapturedUri by remember { mutableStateOf<Uri?>(null) }
+                val newImageUri = rememberNewImageUri()
+
+                val takePicture = rememberLauncherForActivityResult(
+                    ActivityResultContracts.TakePicture()
+                ) { success ->
+                    if (success) lastCapturedUri?.let { vm.onImagePicked(it) }
+                    // optional: else show a snackbar if you want to notify cancel/failure
+                }
+
+                val pickPhoto = rememberLauncherForActivityResult(PickVisualMedia()) { uri: Uri? ->
+                    uri?.let { vm.onImagePicked(it) }
+                }
+
+// if we *do* need to request CAMERA, launch after grant
+                val cameraPermissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { granted ->
+                    if (granted) {
+                        lastCapturedUri?.let { takePicture.launch(it) }
+                    } else {
+                        // optional: snackbar "Camera permission denied"
+                    }
+                }
+
+                // NEW: Scan receipt (dropdown: Take photo / Choose from gallery)
+                var scanMenu by remember { mutableStateOf(false) }
+
+                ActionPillButton(text = "Scan receipt") { scanMenu = true }
+                DropdownMenu(expanded = scanMenu, onDismissRequest = { scanMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Take photo") },
+                        onClick = {
+                            scanMenu = false
+                            // 1) prepare a content:// uri
+                            val uri = newImageUri()
+                            lastCapturedUri = uri
+                            // 2) if permission is already granted -> launch now; else request it
+                            if (hasCameraPermission(ctx)) {
+                                takePicture.launch(uri)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Choose from gallery") },
+                        onClick = {
+                            scanMenu = false
+                            pickPhoto.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                        }
+                    )
                 }
             }
 
@@ -176,7 +238,7 @@ fun TransactionsScreen(onBack: (() -> Unit)? = null) {
         }
     }
 
-    // === NEW: Receipt confirmation bottom sheet ===
+    // === Receipt confirmation bottom sheet ===
     if (state.receipt is ReceiptUiState.Editing) {
         val s = state.receipt as ReceiptUiState.Editing
         ReceiptConfirmSheet(
@@ -193,11 +255,12 @@ private fun ActionPillButton(text: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.onSurface,
-            contentColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        shape = MaterialTheme.shapes.large,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
@@ -273,30 +336,38 @@ private fun ReceiptConfirmSheet(
 ) {
     var vendor by remember { mutableStateOf(initial.vendor) }
     var totalText by remember { mutableStateOf(initial.totalRon.toPlainString()) }
-    var dateText by remember {
-        mutableStateOf(
-            initial.dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
-        )
-    }
+    val dateFmt = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm") }
+    val dateText = remember(initial.dateTime) { initial.dateTime.format(dateFmt) }
     var expanded by remember { mutableStateOf(false) }
 
-    // keep a working draft to pass back
+    // working draft
     var draft by remember { mutableStateOf(initial) }
-    LaunchedEffect(vendor, totalText, dateText) {
+    LaunchedEffect(vendor, totalText) {
         val amt = totalText.replace(',', '.').toBigDecimalOrNull() ?: initial.totalRon
-        draft = draft.copy(
-            vendor = vendor,
-            totalRon = amt
-            // date stays same (read-only text for now)
-        )
+        draft = draft.copy(vendor = vendor, totalRon = amt)
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Confirm receipt", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(12.dp))
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
+            // handle
+            Box(
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .width(36.dp)
+                    .height(4.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.outline,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth().height(4.dp)
+                ) {}
+            }
 
-            // Vendor with suggestions
+            Spacer(Modifier.height(8.dp))
+            Text("Confirm receipt", style = MaterialTheme.typography.titleLarge)
+            Divider(Modifier.padding(top = 8.dp, bottom = 12.dp), color = MaterialTheme.colorScheme.outline)
+
+            // Vendor + suggestions
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = !expanded }
@@ -312,29 +383,32 @@ private fun ReceiptConfirmSheet(
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     suggestions
                         .filter { it.contains(vendor, ignoreCase = true) }
+                        .distinct()
                         .take(8)
                         .forEach { v ->
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(v) },
-                                onClick = { vendor = v; expanded = false }
-                            )
+                            DropdownMenuItem(text = { Text(v) }, onClick = {
+                                vendor = v; expanded = false
+                            })
                         }
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = totalText,
                 onValueChange = { totalText = it },
                 label = { Text("Total (RON)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default.copy(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+
+            Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = dateText,
-                onValueChange = { /* add date picker later if you want */ },
+                onValueChange = { },
                 readOnly = true,
                 label = { Text("Date") },
                 modifier = Modifier.fillMaxWidth()
@@ -342,23 +416,46 @@ private fun ReceiptConfirmSheet(
 
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                    Text("Discard")
-                }
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) { Text("Discard") }
+
                 Button(
                     onClick = {
-                        // ensure we pass correct amount even if user typed comma
-                        val amt = totalText.replace(',', '.').toBigDecimalOrNull() ?: BigDecimal.ZERO
-                        onSave(draft.copy(
+                        val amt = totalText.replace(',', '.').toBigDecimalOrNull() ?: initial.totalRon
+                        onSave(initial.copy(
                             vendor = vendor.ifBlank { "Unknown" },
                             totalRon = amt
                         ))
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) { Text("Save") }
             }
-
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
     }
 }
+
+/** Creates a fresh content Uri in cache/ for TakePicture() */
+@Composable
+private fun rememberNewImageUri(): () -> Uri {
+    val ctx = LocalContext.current
+    return remember {
+        {
+            val dir = File(ctx.cacheDir, "images").apply { mkdirs() }
+            val file = File.createTempFile("receipt_", ".jpg", dir)
+            // MUST match your manifest authority:
+            FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+        }
+    }
+}
+
+private fun hasCameraPermission(ctx: android.content.Context): Boolean =
+    ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
+            PermissionChecker.PERMISSION_GRANTED

@@ -45,35 +45,45 @@ sealed interface ReceiptUiState {
 }
 
 // tiny, local parser tuned for RO receipts
+// --- replace your current ReceiptParser with this one ---
 private object ReceiptParser {
-    private val money = Regex("""(?<!\d)(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})(?!\d)""")
-    private val totalHints = listOf("TOTAL", "TOTAL DE PLATA", "TOTAL DE PLATĂ", "DE PLATA", "SUMA", "DATORAT")
+    // amounts like 7,91 or 1.234,56 — but NOT if followed by a percent sign
+    private val money = Regex("""(?<!\d)(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})(?!\d)(?!\s*%)""")
+
+    private val totalHints = listOf(
+        "TOTAL", "TOTAL DE PLATA", "TOTAL DE PLATĂ", "DE PLATA", "SUMA", "DATORAT"
+    )
+    private val payHints = listOf( // lines that often carry the amount paid
+        "CARD", "CASH", "NUMERAR", "ING", "VISA", "MASTERCARD", "PLATA"
+    )
     private val datePatterns = listOf(
-        Regex("""\b(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2}))?\b"""), // 03.09.2025 14:23
-        Regex("""\b(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?\b""")    // 2025-09-03 14:23
+        Regex("""\b(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2}))?\b"""),
+        Regex("""\b(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?\b""")
     )
 
-    fun parse(text: String, now: LocalDateTime): ReceiptDraft {
+    fun parse(text: String, now: java.time.LocalDateTime): ReceiptDraft {
         val lines = text.replace('\u00A0', ' ')
             .lines().map { it.trim() }.filter { it.isNotEmpty() }
 
+        // VENDOR: first big caps line or first line
         val vendor = lines.firstOrNull { it == it.uppercase() && it.length in 4..40 }
             ?: lines.firstOrNull().orEmpty()
 
+        // DATE
         val date = run {
             for (l in lines) for (p in datePatterns) {
                 val m = p.find(l) ?: continue
                 try {
                     if (p === datePatterns[0]) {
                         val (dd, mm, yyyy, hh, mi) = m.destructured
-                        return@run LocalDateTime.of(
+                        return@run java.time.LocalDateTime.of(
                             yyyy.toInt(), mm.toInt(), dd.toInt(),
                             hh.ifEmpty { "00" }.toInt(),
                             mi.ifEmpty { "00" }.toInt()
                         )
                     } else {
                         val (yyyy, mm, dd, hh, mi) = m.destructured
-                        return@run LocalDateTime.of(
+                        return@run java.time.LocalDateTime.of(
                             yyyy.toInt(), mm.toInt(), dd.toInt(),
                             hh.ifEmpty { "00" }.toInt(),
                             mi.ifEmpty { "00" }.toInt()
@@ -84,12 +94,53 @@ private object ReceiptParser {
             null
         } ?: now
 
-        val hinted = lines.filter { l -> totalHints.any { l.uppercase().contains(it) } }
-            .flatMap { money.findAll(it).map { m -> normalizeMoney(m.groupValues[1]) } }
+        // -------- TOTAL detection with better heuristics --------
+        // 1) Prefer lines with TOTAL (but NOT VAT lines)
+        val totalsFromTotalLines = buildList<java.math.BigDecimal> {
+            lines.forEach { raw ->
+                val up = raw.uppercase()
+                val isTotal = totalHints.any { up.contains(it) }
+                val isVatLine = up.contains("TVA") && !up.contains("DE PL")
+                if (isTotal && !isVatLine) {
+                    money.findAll(raw).forEach { add(normalizeMoney(it.groupValues[1])) }
+                }
+            }
+        }
 
-        val total = (hinted.ifEmpty {
-            lines.flatMap { money.findAll(it).map { m -> normalizeMoney(m.groupValues[1]) } }
-        }).maxOrNull() ?: BigDecimal.ZERO
+        // 2) If none, prefer payment lines (CARD/CASH/ING/etc.)
+        val totalsFromPayLines = if (totalsFromTotalLines.isEmpty()) {
+            buildList<java.math.BigDecimal> {
+                lines.forEach { raw ->
+                    val up = raw.uppercase()
+                    val isPay = payHints.any { up.contains(it) }
+                    if (isPay) money.findAll(raw).forEach { add(normalizeMoney(it.groupValues[1])) }
+                }
+            }
+        } else emptyList()
+
+        // 3) Fallback: take the RIGHTMOST amount per line and choose the median of top values
+        val fallback = if (totalsFromTotalLines.isEmpty() && totalsFromPayLines.isEmpty()) {
+            lines.mapNotNull { l ->
+                money.findAll(l).toList().lastOrNull()?.groupValues?.get(1)?.let(::normalizeMoney)
+            }
+        } else emptyList()
+
+        val total = sequenceOf(
+            totalsFromTotalLines.asSequence(),
+            totalsFromPayLines.asSequence(),
+            fallback.asSequence()
+        ).flatten().toList().let { candidates ->
+            when {
+                candidates.isEmpty() -> java.math.BigDecimal.ZERO
+                candidates.size == 1 -> candidates.first()
+                else -> {
+                    // pick a robust candidate: median of the 3 largest values
+                    val sorted = candidates.sorted()
+                    val tail = sorted.takeLast(minOf(3, sorted.size))
+                    tail[tail.size / 2]
+                }
+            }
+        }
 
         return ReceiptDraft(
             vendor = vendor,
@@ -99,7 +150,7 @@ private object ReceiptParser {
         )
     }
 
-    private fun normalizeMoney(s: String): BigDecimal {
+    private fun normalizeMoney(s: String): java.math.BigDecimal {
         val hasComma = s.contains(',')
         val hasDot = s.contains('.')
         val normalized = when {
@@ -112,9 +163,11 @@ private object ReceiptParser {
             hasComma -> s.replace(",", ".")
             else -> s
         }
-        return normalized.toBigDecimalOrNull() ?: BigDecimal.ZERO
+        return normalized.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO
     }
 }
+
+
 
 // ===== existing UI state =====
 
