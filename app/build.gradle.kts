@@ -71,10 +71,16 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.animated.vector.drawable)
+    implementation(libs.androidx.foundation)
     // If your catalog doesn’t have a compiler alias, add a direct coord:
     kapt(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.text.recognition) // base artifact
+    implementation(libs.kotlinx.coroutines.play.services)
 
+   // implementation(libs.mlkit.bom) // any recent 3x works
+    implementation(libs.text.recognition)           // ← no '-latin', no version
+    implementation(libs.kotlinx.coroutines.play.services) // for await()
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
@@ -116,4 +122,21 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // CameraX
+    val camerax = "1.3.4"
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view) // PreviewView
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // ML Kit Text Recognition v2
+    implementation(libs.text.recognition)
+    // Optional Latin script model (usually pulled automatically)
+    //implementation(libs.text.recognition.latin)
+
+    // Jetpack
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose.v1101)
 }

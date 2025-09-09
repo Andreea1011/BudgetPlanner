@@ -324,41 +324,43 @@ class BudgetRepository(
     }
 
     /** Seed a few defaults (only if the table is empty). */
+
+    val list = listOf(
+        // Supermarkets → FOOD
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "MEGA",       category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "CARREFOUR",  category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "KAUFLAND",   category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "LIDL",       category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "PROFI",      category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "PENNY",      category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "DIANA",      category = "FOOD", priority = 10),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "ANNABELLA",      category = "FOOD", priority = 10),
+
+
+
+
+        // Pharmacies → FARMACY and exclude from personal spend
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "CATENA",     category = "FARMACY", excludePersonal = true, priority = 20),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "SENSIBLU",   category = "FARMACY", excludePersonal = true, priority = 20),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "HELP NET",   category = "FARMACY", excludePersonal = true, priority = 20),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "DR.MAX",     category = "FARMACY", excludePersonal = true, priority = 20),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "BAJAN",      category = "FARMACY", excludePersonal = true, priority = 20),
+
+
+        // Transport examples
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "STB",        category = "TRANSPORT", priority = 30),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "METROREX",   category = "TRANSPORT", priority = 30),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "UBER",       category = "TRANSPORT", priority = 30),
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "BOLT",       category = "TRANSPORT", priority = 30),
+
+        // Incoming transfers from Mom (example)
+        MerchantRuleEntity(matchType = "CONTAINS", pattern = "MONICA ELENA LITA",       category = "OTHER", setParty = "MOM", priority = 5),
+    )
     suspend fun seedDefaultRulesIfEmpty() = withContext(Dispatchers.IO) {
         val dao = merchantRuleDao
         if (dao.count() > 0) return@withContext
 
-        val list = listOf(
-            // Supermarkets → FOOD
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "MEGA",       category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "CARREFOUR",  category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "KAUFLAND",   category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "LIDL",       category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "PROFI",      category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "PENNY",      category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "DIANA",      category = "FOOD", priority = 10),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "ANNABELLA",      category = "FOOD", priority = 10),
 
-
-
-
-            // Pharmacies → FARMACY and exclude from personal spend
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "CATENA",     category = "FARMACY", excludePersonal = true, priority = 20),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "SENSIBLU",   category = "FARMACY", excludePersonal = true, priority = 20),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "HELP NET",   category = "FARMACY", excludePersonal = true, priority = 20),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "DR.MAX",     category = "FARMACY", excludePersonal = true, priority = 20),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "BAJAN",      category = "FARMACY", excludePersonal = true, priority = 20),
-
-
-            // Transport examples
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "STB",        category = "TRANSPORT", priority = 30),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "METROREX",   category = "TRANSPORT", priority = 30),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "UBER",       category = "TRANSPORT", priority = 30),
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "BOLT",       category = "TRANSPORT", priority = 30),
-
-            // Incoming transfers from Mom (example)
-            MerchantRuleEntity(matchType = "CONTAINS", pattern = "MONICA ELENA LITA",       category = "OTHER", setParty = "MOM", priority = 5),
-        )
         list.forEach { dao.insert(it) }
     }
 
@@ -427,4 +429,12 @@ class BudgetRepository(
         }
         return CreditAllocation(allocated = allocated, items = count, surplus = surplus)
     }
+
+    // Choose the right field from your MerchantRuleEntity (e.g., merchant / vendor / alias / pattern / name)
+    suspend fun vendorSuggestions(): List<String> {
+        // If you also keep a predefined `list: List<String>`, merge or return that instead.
+        return merchantRuleDao.getAll().map { it.pattern /* or it.vendor or it.name */ }
+        // or: return list  // if you already have the hardcoded vendor list you mentioned
+    }
+
 }

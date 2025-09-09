@@ -4,6 +4,7 @@ activityComposeVersion = "1.10.1"
 agp = "8.12.2"
 androidxActivityCompose = "1.10.1"
 androidxComposeBom = "2025.08.01"
+camerax = "1.3.4"
 coilCompose = "2.7.0"
 compose = "2.1.3"
 composeBomVersion = "2025.08.01"
@@ -19,6 +20,7 @@ datastorePreferences = "1.1.7"
 datastorePreferencesVersion = "1.1.7"
 desugar_jdk_libs = "2.1.5"
 kotlin = "2.2.10"
+kotlinxCoroutinesPlayServices = "1.8.1"
 ksp = "2.2.10-1.0.24"   # MUST match your Kotlin minor version
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -32,6 +34,7 @@ lifecycleViewmodelKtx = "2.9.3"
 material3 = "1.3.2"
 materialIconsExtended = "1.7.8"
 materialIconsExtendedVersion = "1.7.8"
+mlkitBom = "32.0.0"
 moshi = "1.15.2"
 moshiKotlin = "1.15.2"
 navigationCompose = "2.9.3"
@@ -40,6 +43,9 @@ retrofitVersion = "3.0.0"
 roomCompiler = "2.7.2"
 roomRuntime = "2.7.2"
 animatedVectorDrawable = "28.0.0"
+textRecognition = "16.0.1"
+textRecognitionLatin = "16.0.1"
+foundation = "1.9.0"
 
 [libraries]
 #noinspection SimilarGradleDependency
@@ -48,6 +54,10 @@ androidx-activity-compose-v1101 = { module = "androidx.activity:activity-compose
 #noinspection SimilarGradleDependency
 androidx-activity-compose-v190 = { module = "androidx.activity:activity-compose", version.ref = "androidxActivityCompose" }
 #noinspection SimilarGradleDependency
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 androidx-compose-bom-v20240600 = { module = "androidx.compose:compose-bom", version.ref = "composeBomVersion" }
 #noinspection SimilarGradleDependency
 androidx-compose-bom-v20250801 = { module = "androidx.compose:compose-bom", version.ref = "androidxComposeBom" }
@@ -103,7 +113,9 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesPlayServices" }
 material3 = { module = "androidx.compose.material3:material3" }
+mlkit-bom = { module = "com.google.mlkit:mlkit-bom", version.ref = "mlkitBom" }
 moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
 moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "moshiKotlin" }
 retro_fit2-converter-moshi = { module = "com.squareup.retro fit2:converter-moshi", version.ref = "converterMoshiVersion" }
@@ -111,8 +123,11 @@ retro_fit2-converter-moshi = { module = "com.squareup.retro fit2:converter-moshi
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 #noinspection SimilarGradleDependency
 retrofit-v2110 = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofitVersion" }
+text-recognition-latin = { module = "com.google.mlkit:text-recognition-latin", version.ref = "textRecognitionLatin" }
+text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "textRecognition" }
 ui = { module = "androidx.compose.ui:ui" }
 animated-vector-drawable = { group = "com.android.support", name = "animated-vector-drawable", version.ref = "animatedVectorDrawable" }
+androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
